@@ -1,0 +1,14 @@
+{
+    "default": {
+        "host": "localhost",
+        "name": "db_name",
+        "user": "db_user",
+        "pass": "db_pass"
+    },
+    "default_test": {
+        "host": "localhost",
+        "name": "db_name_test",
+        "user": "db_user",
+        "pass": "db_pass"
+    }
+}
