@@ -1,39 +1,15 @@
 <?php
 namespace Database;
 
-use Helpers\ArrayHelper;
-use Helpers\JSON;
-use Helpers\Raven;
 use PDO;
-
-/**
- * Class DBExpression
- *
- * very simple class for use it in query without escaping
- *
- * @package Database
- */
-class DBExpression {
-
-    protected $value;
-
-    public function __construct($value) {
-        $this->value;
-    }
-
-    public function getValue() {
-        return $this->value;
-    }
-}
 
 /**
  * Simple wrapper for queries to PDO
  *
- * Class DB_hithub
+ * Class DB
  * @package Database
  */
 class DB extends PDO {
-    const PATH_CONFIG = '../config/database.json';
 
     const CONFIG_DEFAULT = 'default';
     const CONFIG_OTHER = 'other';
@@ -68,8 +44,10 @@ class DB extends PDO {
         self::CONFIG_DEFAULT => self::CONFIG_DEFAULT_TEST,
     ];
 
-    /** @var PDO []$_instance */
-    protected static $_instance;
+    /** @var $_instances PDO[] */
+    protected static $_instances;
+
+    /** @var $_config array */
     protected static $_config;
 
     /**
@@ -90,8 +68,8 @@ class DB extends PDO {
         $instance_key = $db_name . '_' . $server;
 
         // instance exist
-        if (isset(self::$_instance[$instance_key])) {
-            return self::$_instance[$instance_key];
+        if (isset(self::$_instances[$instance_key])) {
+            return self::$_instances[$instance_key];
         }
 
         // get instance config
@@ -103,9 +81,9 @@ class DB extends PDO {
         $dsn = self::_getDSN($db_config, $server);
 
         try {
-            self::$_instance[$instance_key] = null;
-            self::$_instance[$instance_key] = new self($dsn, $db_config['user'], $db_config['pass']);
-            self::$_instance[$instance_key]->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            self::$_instances[$instance_key] = null;
+            self::$_instances[$instance_key] = new self($dsn, $db_config['user'], $db_config['pass']);
+            self::$_instances[$instance_key]->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         } catch (\PDOException $e) {
             error_log('PDO exception START');
             error_log($e->getMessage());
@@ -114,7 +92,7 @@ class DB extends PDO {
             throw $e;
         }
         
-        return self::$_instance[$instance_key];
+        return self::$_instances[$instance_key];
     }
 
     /**
@@ -124,8 +102,8 @@ class DB extends PDO {
      */
     protected function _getCurrentInstance() {
 
-        if (isset(self::$_instance) && is_array(self::$_instance)) {
-            foreach (self::$_instance AS $instance_key => $instance) {
+        if (isset(self::$_instances) && is_array(self::$_instances)) {
+            foreach (self::$_instances AS $instance_key => $instance) {
                 if ($instance === $this) return $instance_key;
             }
         }
@@ -137,7 +115,9 @@ class DB extends PDO {
      * begin of transaction for list of the queries
      * 
      * @example
+     *
      * $db->beginTransaction();
+     *
      * try {
      *   // commit queries
      * } catch (Exception $e) {
@@ -174,7 +154,9 @@ class DB extends PDO {
      *   $db->insert(...);
      *   $db->insert(...);
      *   $db->update(...);
+     *
      *   $db->commit();
+     *
      * } catch (Exception $e) {
      *   // rollback
      * }
@@ -209,7 +191,9 @@ class DB extends PDO {
      * try {
      *   // commit queries
      * } catch (Exception $e) {
+     *
      *   $db->rollback();
+     *
      * }
      * 
      * @return bool|null
@@ -245,13 +229,13 @@ class DB extends PDO {
      */
     public static function closeConnections() {
 
-        if (is_array(self::$_instance) && count(self::$_instance)) {
-            foreach (self::$_instance AS $dsn => $instance) {
-                unset(self::$_instance[$dsn]);
+        if (is_array(self::$_instances) && count(self::$_instances)) {
+            foreach (self::$_instances AS $dsn => $instance) {
+                unset(self::$_instances[$dsn]);
             }
         }
 
-        self::$_instance = null;
+        self::$_instances = null;
     }
 
     /**
@@ -452,14 +436,30 @@ class DB extends PDO {
     }
 
     /**
+     * delete rows
+     *
+     * @example $db->delete('users', ['visits' => 0]);
+     *
+     * @param       $table
+     * @param array $conditions
+     *
+     * @return bool
+     */
+    public function delete($table, array $conditions = []) {
+
+        $this->prepareData(self::QUERY_DELETE, $table, null, $conditions);
+
+        $stmt = $this->prepare($this->preparedQuery);
+        return $stmt->execute($this->preparedPlaceholders);
+    }
+
+    /**
      * get config from json-file
      *
      * @return mixed
      */
     protected static function _getConfig() {
-
-        $config = file_get_contents(__DIR__ . '/' . self::PATH_CONFIG);
-
+        $config = file_get_contents(__DIR__ . '/../config/db.json');
         return json_decode($config, true);
     }
 
@@ -601,11 +601,6 @@ class DB extends PDO {
         foreach ($conditions as $key => $value) {
 
             switch (true) {
-
-                case ($value instanceof DBExpression):
-                    $where[] = "`{$key}` = " . $value->getValue();
-                    unset($conditions[$key]);
-                    break;
 
                 case is_null($value):
                 case strtoupper($value) === self::QUERY_IS_NULL:
