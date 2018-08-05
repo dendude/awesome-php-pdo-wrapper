@@ -1,6 +1,6 @@
 # PDO wrapper for really easy queries to the database
 
-Useful wrapper for PDO using php7.1
+Useful wrapper for PDO using >=php7.1
 
 Database\DB class realizes a singleton/multiton desing pattern.
 
