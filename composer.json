@@ -1,0 +1,6 @@
+{
+    "name": "dendude/simple-php-pdo-wrapper",
+    "description": "Simple PDO wrapper",
+    "license": "MIT",
+    "require": {}
+}
